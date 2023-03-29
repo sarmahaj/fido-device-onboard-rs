@@ -129,6 +129,8 @@ async fn admin_auth_handler(
     user_data: ServiceInfoApiServerUDT,
     auth_header: String,
 ) -> Result<ServiceInfoApiServerUDT, warp::Rejection> {
+
+    log::info!("Inside admin_auth_handler ");
     match &user_data.admin_auth_token {
         None => {
             log::warn!("Admin API server disabled");
@@ -147,7 +149,7 @@ async fn admin_auth_handler(
 
 #[derive(Debug, Deserialize)]
 struct AdminV0Request {
-    #[serde(deserialize_with = "deserialize_from_str")]
+   // #[serde(deserialize_with = "deserialize_from_str")]
     device_guid: fdo_data_formats::types::Guid,
     service_info: Vec<(ServiceInfoModule, String, serde_json::Value)>,
 }
@@ -164,6 +166,8 @@ async fn admin_v0_handler(
     user_data: ServiceInfoApiServerUDT,
     request_info: AdminV0Request,
 ) -> Result<warp::reply::Json, warp::Rejection> {
+
+    log::info!("Inside admin_v0_handler ");
     match user_data
         .device_specific_store
         .store_data(request_info.device_guid, request_info.service_info)

@@ -1,16 +1,19 @@
 use std::{convert::TryFrom, str::FromStr};
-
+use serde_json;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
 use aws_nitro_enclaves_cose::error::CoseError;
 use fdo_data_formats::{
     constants::MessageType,
+    constants::ServiceInfoModule,
+   // constants::FedoraIotServiceInfoModule,
     messages::{v11::ErrorMessage, ClientMessage, EncryptionRequirement, Message, ServerMessage},
     ProtocolVersion, Serializable,
 };
+//use fdo-serviceinfo-api-server::{AdminV0Request, AdminV0Reply};
 
 use crate::EncryptionKeys;
+
 
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -66,6 +69,29 @@ pub struct JsonClient {
     authentication: JsonAuthentication,
 }
 
+
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AdminV0Request {
+    pub device_guid: fdo_data_formats::types::Guid,
+    pub service_info: Vec<(ServiceInfoModule, String, serde_json::Value)>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminV0Reply {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+
+    success: bool,
+}
+
+use reqwest::Body;
+impl From<&AdminV0Request> for Body {
+    fn from(req: &AdminV0Request) -> Self {
+        Body::from(serde_json::to_string(req).unwrap())
+    }
+}
+
 impl JsonClient {
     pub fn new(base_url: String, authentication: JsonAuthentication) -> RequestResult<Self> {
         let mut client_builder = reqwest::Client::builder();
@@ -97,6 +123,68 @@ impl JsonClient {
             authentication,
         })
     }
+
+//    pub async fn send_post(&self, body: serde_json::Value) -> RequestResult<()>
+pub async fn send_post(&self, body: AdminV0Request) -> RequestResult<()>
+    {
+       // let mut url = self.base_url.clone();
+   /*      let url = format!(
+            "{}/admin/v0",
+            &self.base_url,
+        ); */
+        //sarmahaj: TODO This url has /device_info path in it which we only use for 
+        // serviceinfo api for admin we dont need that to in path.
+
+        let url = "http://localhost:8083/admin/v0";
+
+        let token = match &self.authentication {
+            JsonAuthentication::None => None,
+            JsonAuthentication::BearerToken { token} => Some(token),
+            JsonAuthentication::ClientCertificate { .. } => {
+                unreachable!("Should not be possible to get here")
+            }
+        };
+        let authorization_token = match token {
+            Some(token) => format!("Bearer {}", token),
+            None => "".to_string(),
+        };
+        log::debug!("Authentication token: post_send method {:?}",token);
+
+        let req = self
+            .client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .header("Authorization", authorization_token)
+            .body(&body);
+        log::trace!("Sending JSON API request <post>: {:?}", req);
+        let resp = req.send().await?;
+        log::trace!("Received JSON API response <post>: {:?}", resp);
+    
+
+       /*  let request_builder = self.client
+            .request(reqwest::Method::POST, url)
+            .header("Content-Type", "application/json")
+            .json(&body);
+        
+        let request_builder = match &self.authentication {
+            JsonAuthentication::None => request_builder,
+            JsonAuthentication::BearerToken { token } => {
+                request_builder.header("Authorization", format!("Bearer {}", token))
+            }
+            JsonAuthentication::ClientCertificate { .. } => {
+                unreachable!("Should not be possible to get here")
+            }
+        };
+        
+        let request = request_builder.build()?;
+        
+        log::trace!("Sending JSON API request <post>: {:?}", request);
+        let resp = self.client.execute(request).await;
+        log::trace!("Received JSON API response <post>: {:?}", resp); */
+       
+        Ok(())
+
+    } 
 
     pub async fn send_get<'a, QT, OT>(&self, query: QT) -> RequestResult<OT>
     where

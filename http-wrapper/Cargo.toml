@@ -12,6 +12,7 @@ thiserror = "1"
 async-trait = "0.1"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.95"
 pretty_env_logger = "0.4"
 
 hex = "0.4"
@@ -20,6 +21,7 @@ openssl = "0.10.45"
 
 fdo-data-formats = { path = "../data-formats", version = "0.4.8" }
 fdo-store = { path = "../store", version = "0.4.8" }
+#fdo-serviceinfo-api-server = { path = "../fdo-serviceinfo-api-server", version = "0.4.8" }
 aws-nitro-enclaves-cose = "0.4.0"
 
 # Server-side

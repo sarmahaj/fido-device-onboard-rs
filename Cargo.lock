@@ -835,6 +835,7 @@ dependencies = [
  "pretty_env_logger",
  "reqwest",
  "serde",
+ "serde_json",
  "thiserror",
  "time",
  "url",
@@ -899,6 +900,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_cbor",
+ "serde_json",
  "serde_yaml",
  "thiserror",
  "time",
@@ -2526,9 +2528,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.93"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cad406b69c91885b5107daf2c29572f6c8cdb3c66826821e286c533490c0bc76"
+checksum = "d721eca97ac802aa7777b701877c8004d950fc142651367300d21c1cc0194744"
 dependencies = [
  "itoa",
  "ryu",

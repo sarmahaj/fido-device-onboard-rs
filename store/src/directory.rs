@@ -298,6 +298,7 @@ where
     }
 
     async fn store_data(&self, key: K, value: V) -> Result<(), StoreError> {
+        log::trace!("Inside store_data");
         let finalpath = self.get_path(&key);
         let mut path = finalpath.clone();
         path.set_file_name(format!(

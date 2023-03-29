@@ -1,7 +1,9 @@
 use std::{collections::HashSet, str::FromStr};
-
+//use serde_json::json;
+//use serde::{Deserialize, Serialize};
 use fdo_data_formats::{
     constants::{DeviceSigType, ErrorCode, HeaderKeys},
+   // constants::ServiceInfoModule,
     messages::Message,
     types::{
         COSEHeaderMap, COSESign, CipherSuite, Guid, KeyDeriveSide, KeyExchange, Nonce,
@@ -17,6 +19,9 @@ use fdo_data_formats::{
 use fdo_http_wrapper::server::Error;
 use fdo_http_wrapper::server::RequestInformation;
 use fdo_http_wrapper::EncryptionKeys;
+//use fdo_http_wrapper::client::AdminV0Reply;
+use fdo_http_wrapper::client::AdminV0Request;
+
 use fdo_store::MetadataKey;
 use fdo_util::servers::{OwnershipVoucherStoreMetadataKey, ServiceInfoApiReply};
 
@@ -385,7 +390,6 @@ pub(super) async fn device_service_info_ready(
 }
 
 const MAX_SERVICE_INFO_LOOPS: u32 = 1000;
-
 pub(super) async fn device_service_info(
     user_data: super::OwnerServiceUDT,
     mut ses_with_store: RequestInformation,
@@ -473,6 +477,7 @@ pub(super) async fn device_service_info(
     Ok((resp, ses_with_store))
 }
 
+
 async fn perform_service_info(
     user_data: super::OwnerServiceUDT,
     _session: &mut fdo_http_wrapper::server::Session,
@@ -491,6 +496,33 @@ async fn perform_service_info(
     let in_si = msg.service_info();
 
     log::trace!("Received ServiceInfo loop {}: {:?}", loop_num, in_si);
+
+       //lets try sending serviceinfo per device
+ /*       let body = json!({
+        "device_guid": &device_guid.to_string(),
+        "service_info": [
+            {
+                "module": "test-module",
+                "version": "test-version",
+                "info": {"key-test": "value-test"}
+            }
+        ]}); */
+
+        let request_body = AdminV0Request {
+            device_guid: device_guid.clone(),
+            service_info: vec![(
+               // fdo_data_formats::constants::ServiceInfoModule::Unsupported("module-name".to_string()),
+               StandardServiceInfoModule::DevMod.into(),
+                "test-version".to_string(),
+                serde_json::json!({"key-test": "value-test"}),
+            )],
+        };
+    let resp1 = user_data
+    .service_info_api_client
+    .send_post(request_body)
+    .await?;
+
+    log::info!("Serviceinfo per device info stored {:?}",resp1);
 
     let mut module_list: Option<Vec<String>> = None;
 

@@ -1,0 +1,24 @@
+name: Issue and PR Report
+
+on:
+  schedule:
+    - cron: '0 0 * * 5' # Runs every Friday at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: fedora-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get issues/PRs
+        run: |
+          curl \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/sarmahaj/fido-device-onboard-rs/issues?state=open > issues.json
+
+      - name: Generate report
+        run: |
+          echo "Open Issues and PRs for sarmahaj/fido-device-onboard-rs:" > report.txt

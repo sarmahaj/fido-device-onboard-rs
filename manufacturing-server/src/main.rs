@@ -1,3 +1,5 @@
+
+
 use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
 use std::fs;
@@ -10,7 +12,6 @@ use openssl::{
     x509::X509,
 };
 use serde_yaml::Value;
-use tokio::signal::unix::{signal, SignalKind};
 use warp::Filter;
 
 use fdo_data_formats::{
@@ -25,6 +26,17 @@ use fdo_util::servers::{
     configuration::manufacturing_server::{DiunSettings, ManufacturingServerSettings},
     settings_for, yaml_to_cbor, OwnershipVoucherStoreMetadataKey,
 };
+
+
+use std::convert::Infallible;
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod, SslAcceptorBuilder};
+use tokio::net::TcpListener;
+use std::net::SocketAddr;
+use hyper::server::conn::AddrIncoming;
+use tls_listener::TlsListener;
+
+pub mod tls_config;
+use tls_config::tls_acceptor;
 
 const PERFORMED_DIUN_SES_KEY: &str = "mfg_global_diun_performed";
 const DEVICE_KEY_FROM_DIUN_SES_KEY: &str = "mfg_global_device_key_from_diun";
@@ -175,7 +187,7 @@ async fn main() -> Result<()> {
         .context("Error parsing configuration")?;
 
     // Bind information
-    let bind_addr = settings.bind.clone();
+    let bind_addr: fdo_util::servers::configuration::Bind = settings.bind.clone();
 
     // Initialize stores
     let session_store = settings
@@ -266,6 +278,7 @@ async fn main() -> Result<()> {
         diun_configuration,
     });
 
+
     // Initialize handlers
     let hello = warp::get().map(|| "Hello from the manufacturing server");
     let handler_ping = fdo_http_wrapper::server::ping_handler();
@@ -304,6 +317,7 @@ async fn main() -> Result<()> {
         handlers::diun::provide_key,
     );
 
+    log::info!("set up warp routes ");
     let routes = warp::post()
         .and(
             hello
@@ -318,9 +332,101 @@ async fn main() -> Result<()> {
         )
         .recover(fdo_http_wrapper::server::handle_rejection)
         .with(warp::log("manufacturing-server"));
+        //Method 1 , without using tls-listener lib 
 
-    log::info!("Listening on {}", bind_addr);
-    let server = warp::serve(routes);
+        let addr = ([127, 0, 0, 1], 3000).into();
+        // Load SSL keys and certificates
+        let cert_path = "/workspaces/fido-device-onboard-rs/certs/cert.pem";
+        let key_path = "/workspaces/fido-device-onboard-rs/certskey.pem";
+
+        let cert_ = fs::read(cert_path).expect("Failed to read certificate file");
+        let key_ = fs::read(key_path).expect("Failed to read private key file");
+
+        // Parse the certificate and private key from bytes to OpenSSL objects
+        let cert = X509::from_pem(&cert_).context("Error parsing SSL certificate")?;
+        let key = PKey::private_key_from_pem(&key_).context("Error parsing SSL private key")?;
+
+
+        let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+        builder.set_certificate(&cert);
+        builder.set_private_key(&key);
+        //let acceptor = Arc::new(builder.build());
+        let acceptor =  builder.build();
+
+
+        // Define a test route
+        let hello = warp::path!("hello" / "world")
+            .map(|| warp::reply::html("Hello, world!"));
+
+        let routes_test = hello;
+
+        // Convert routes into a warp service, so that we can use hyper to serve this services with TLS config.
+        let service = warp::service(routes_test);
+
+        let make_svc = hyper::service::make_service_fn(move |_| {
+            let svc = service.clone();
+            async move { Ok::<_, Infallible>(svc) }
+        });
+
+
+        // Create a listener and wrap with TLS using the acceptor
+        //  let listener = TcpListener::bind("127.0.0.1:8080");
+        // let incoming_tls = listener.accept().await;
+
+        //Trial tls-listener lib
+        let incoming = TlsListener::new(tls_acceptor(), AddrIncoming::bind(&addr)?);
+       // let incoming = TlsListener::new(tls_acceptor(), listener);
+       
+        // Mtho0d 2: If not using tls-listener lib , just need to figure out a correct way of passing 'incoming' param below
+        // which is basically combination of SSlAcceptor & Addrs
+       //  let incoming_tls = (acceptor, AddrIncoming::bind(&addr)?);
+
+       // let server = hyper::Server::builder(incoming_tls).serve(make_svc);
+       // using tls-listener
+        let server = hyper::Server::builder(incoming).serve(make_svc);
+        // Server should start here
+        log::info!("starting server with https support");
+        server.await?;
+
+        
+        
+        // For Ref only:
+        // Serve incoming TLS connections
+       // warp::Server::serve_incoming(self, incoming_tls);
+            //warp::Server::run(self, addr)
+   /*      
+        let hello = warp::path!("hello").map(|| "Hello, world!"); // this one always succeeds, even over a network
+       
+            // Convert it into a `Service`...
+        let svc = warp::service(hello.or(routes));
+
+        let make_svc = hyper::service::make_service_fn(move |_| {
+            let svc = svc.clone();
+            async move { Ok::<_, Infallible>(svc) }
+        });
+
+        let addr = SocketAddr::from(([127, 0, 0, 1], 4433));
+        let listener = TcpListener::bind(&addr).await?;
+
+        let server = hyper::Server::builder(accept::from_stream(listener.accept()))
+            .serve(make_svc);
+
+        let server_handle = tokio::spawn(server);
+       
+  
+    
+      */
+
+      
+      /* //  let server = hyper::Server::builder(https).serve(make_svc);
+        let builder: native_tls::TlsAcceptorBuilder = native_tls::TlsAcceptorBuilder::build(builder);
+      //  native_tls::TlsAcceptorBuilder::
+        let tls_acceptor = builder.build().expect("Failed to build TLS acceptor");
+       // TcpServer::new(Server::new(Http::new(), tls_acceptor), addr).serve(make_svc);
+       let server = hyper::Server::builder(tls_acceptor).serve(make_svc);
+ */
+       
+ /* let server = warp::serve(routes);
 
     let maintenance_runner =
         tokio::spawn(async move { perform_maintenance(user_data.clone()).await });
@@ -341,5 +447,28 @@ async fn main() -> Result<()> {
         log::info!("Maintenance runner terminated");
     });
 
+ */
+
+    // for https support
+    // Define the address to bind to
+ /*    let https_addr = ([0, 0, 0, 0], 8080).into(); // Change port to desired HTTPS port
+    let https_route = warp::any().map(|| "Hello From https enabled Warp!");
+
+    // Convert it into a `Service`
+    let svc = warp::service(https_route);
+
+    //  hyper setup
+    let make_svc = hyper::service::make_service_fn(move |_| async move {
+        Ok::<_, Infallible>(svc)
+    });
+
+    hyper::Server::bind(&https_addr)
+        .serve(make_svc)
+        .await?;
+    // Start the server
+    log::info!("Listening on https://{}", https_addr); */
+    
+
     Ok(())
 }
+

@@ -881,11 +881,15 @@ dependencies = [
  "fdo-http-wrapper",
  "fdo-util",
  "hex",
+ "hyper",
+ "hyper-tls",
  "log",
  "openssl",
  "rand",
  "regex",
+ "reqwest",
  "tokio",
+ "tokio-native-tls",
  "tss-esapi",
 ]
 
@@ -901,9 +905,7 @@ dependencies = [
  "fdo-util",
  "hex",
  "hyper",
- "hyper-tls",
  "log",
- "native-tls",
  "openssl",
  "serde",
  "serde_yaml",
@@ -2894,6 +2896,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81294c017957a1a69794f506723519255879e15a870507faf45dfed288b763dd"
 dependencies = [
  "futures-util",
+ "hyper",
  "openssl",
  "pin-project-lite",
  "thiserror",

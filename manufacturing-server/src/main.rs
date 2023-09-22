@@ -334,29 +334,29 @@ async fn main() -> Result<()> {
         .with(warp::log("manufacturing-server"));
         //Method 1 , without using tls-listener lib 
 
-        let addr = ([127, 0, 0, 1], 3000).into();
-        // Load SSL keys and certificates
-        let cert_path = "/workspaces/fido-device-onboard-rs/certs/cert.pem";
-        let key_path = "/workspaces/fido-device-onboard-rs/certskey.pem";
+        let addr = ([127, 0, 0, 1], 8080).into();
+        // // Load SSL keys and certificates
+        // let cert_path = "/workspaces/fido-device-onboard-rs/certs/cert.pem";
+        // let key_path = "/workspaces/fido-device-onboard-rs/certs/key.pem";
 
-        let cert_ = fs::read(cert_path).expect("Failed to read certificate file");
-        let key_ = fs::read(key_path).expect("Failed to read private key file");
+        // let cert_ = fs::read(cert_path).expect("Failed to read certificate file");
+        // let key_ = fs::read(key_path).expect("Failed to read private key file");
 
-        // Parse the certificate and private key from bytes to OpenSSL objects
-        let cert = X509::from_pem(&cert_).context("Error parsing SSL certificate")?;
-        let key = PKey::private_key_from_pem(&key_).context("Error parsing SSL private key")?;
+        // // Parse the certificate and private key from bytes to OpenSSL objects
+        // let cert = X509::from_pem(&cert_).context("Error parsing SSL certificate")?;
+        // let key = PKey::private_key_from_pem(&key_).context("Error parsing SSL private key")?;
 
 
-        let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-        builder.set_certificate(&cert);
-        builder.set_private_key(&key);
-        //let acceptor = Arc::new(builder.build());
-        let acceptor =  builder.build();
+        // let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+        // builder.set_certificate(&cert);
+        // builder.set_private_key(&key);
+        // //let acceptor = Arc::new(builder.build());
+        // let acceptor =  builder.build();
 
 
         // Define a test route
         let hello = warp::path!("hello" / "world")
-            .map(|| warp::reply::html("Hello, world!"));
+            .map(|| warp::reply::html("This is warp server with https enabled!"));
 
         let routes_test = hello;
 
@@ -367,14 +367,18 @@ async fn main() -> Result<()> {
             let svc = service.clone();
             async move { Ok::<_, Infallible>(svc) }
         });
-
-
+        //Trial tls-listener lib
+        let incoming = TlsListener::new(tls_acceptor(), AddrIncoming::bind(&addr)?);
+        // using tls-listener
+        let server = hyper::Server::builder(incoming).serve(make_svc);
+        // Server should start here
+        log::info!("starting server with https support");
+        server.await?;
         // Create a listener and wrap with TLS using the acceptor
         //  let listener = TcpListener::bind("127.0.0.1:8080");
         // let incoming_tls = listener.accept().await;
 
-        //Trial tls-listener lib
-        let incoming = TlsListener::new(tls_acceptor(), AddrIncoming::bind(&addr)?);
+
        // let incoming = TlsListener::new(tls_acceptor(), listener);
        
         // Mtho0d 2: If not using tls-listener lib , just need to figure out a correct way of passing 'incoming' param below
@@ -382,11 +386,7 @@ async fn main() -> Result<()> {
        //  let incoming_tls = (acceptor, AddrIncoming::bind(&addr)?);
 
        // let server = hyper::Server::builder(incoming_tls).serve(make_svc);
-       // using tls-listener
-        let server = hyper::Server::builder(incoming).serve(make_svc);
-        // Server should start here
-        log::info!("starting server with https support");
-        server.await?;
+   
 
         
         

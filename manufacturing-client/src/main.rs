@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+/* use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use regex::Regex;
 use std::io::{BufRead, BufReader};
@@ -1020,3 +1020,148 @@ fn get_default_network_iface() -> Result<Option<String>, std::io::Error> {
     }
     Ok(None)
 }
+ */
+
+ use reqwest::Client;
+
+ #[tokio::main]
+ async fn main() -> Result<(), reqwest::Error> {
+     // Create a reqwest client.
+     let client = Client::builder()
+         .danger_accept_invalid_certs(true) // This allows self-signed certificates for testing purposes.
+         .build()?;
+     
+     // Define server url
+     let url = "http://127.0.0.1:8080/hello/world"; 
+ 
+     // Send a GET request to the server.
+     let response = client.get(url).send().await?;
+ 
+     // Check the response status code.
+     if response.status().is_success() {
+         // If the status code is in the 2xx range, print the response body.
+         let body = response.text().await?;
+         //let remote_addr = response.headers();
+         println!("Response: {}", body);
+     } else {
+         println!("Request failed with status: {:?}", response.status());
+     }
+ 
+     Ok(())
+ } 
+
+
+/*  use hyper::{Body, Client};
+use hyper_tls::HttpsConnector;
+use openssl::ssl::{SslContext, SslVerifyMode, SslFiletype, SslConnector};
+use std::error::Error;
+use tokio::runtime;
+use openssl::ssl::SslMethod;
+use tokio_native_tls::TlsConnector;
+
+fn main() -> Result<(), Box<dyn Error>> {
+    // Create a runtime for the async code
+    let rt = runtime::Runtime::new()?;
+/* 
+    // Create an SSL context for certificate verification
+    let mut ssl_context = SslContext::builder(SslMethod::tls())?;
+    ssl_context.set_verify(SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT);
+
+    // Load the trusted root CA certificates for certificate validation
+    ssl_context.set_ca_file("/workspaces/fido-device-onboard-rs/certs/trial/server.crt")?; // Replace with your CA certificate file path
+
+     // Create an OpenSSL-based TlsConnector with the SSL context
+     let tls_connector = ssl_context.build().into(); */
+
+     // Create an OpenSSL-based TlsConnector for the client
+    let mut builder = SslConnector::builder(SslMethod::tls())?;
+
+    // Load your server certificate from a local file
+    builder.set_certificate_file("/path/to/your/server.crt", SslFiletype::PEM)?;
+
+    // Set the certificate verification options
+    builder.set_verify(SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT);
+
+    let tls_connector = builder.build();
+
+    // Create a tokio-native-tls-based TlsConnector
+    let tls_connector = TlsConnector::from(tls_connector);
+
+    // Create an HTTPS connector using the tokio-native-tls TlsConnector
+    let https_connector = HttpsConnector::new(tls_connector)?;
+
+ 
+     // Combine the TlsConnector and HttpsConnector into a single connector
+     let connector = hyper_tls::HttpsConnector::from((https_connector, tls_connector));
+ 
+     let client = Client::builder().build::<_, Body>(connector);
+
+    // let https_connector = HttpsConnector::new();
+    
+    //let client = Client::builder().build::<_, Body>(https_connector.https_only(true));
+
+    // Define the URL of the server
+    let url = "https://127.0.0.1:8080/hello/world".parse()?;
+
+    // Create an HTTP GET request
+    let request = hyper::Request::builder()
+        .uri(url)
+        .header("Host", "localhost")
+        .body(Body::empty())
+        .unwrap();
+
+    // Send the request and wait for the response
+    let response = rt.block_on(async { client.request(request).await })?;
+
+    // Check if the response status is OK (200)
+    if response.status() == hyper::StatusCode::OK {
+        println!("Request succeeded!");
+    } else {
+        println!("Request failed with status: {:?}", response.status());
+    }
+    Ok(())
+}
+
+  */
+
+/* extern crate reqwest;
+extern crate openssl;
+
+use std::fs::File;
+use std::io::Read;
+use std::sync::Arc;
+use openssl::ssl::{SslConnector, SslMethod};
+use reqwest::Client;
+use reqwest::StatusCode;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create an OpenSSL SSL connector with verification
+    let mut builder = SslConnector::builder(SslMethod::tls())?;
+    builder.set_ca_file("path/to/your/ca.crt")?; // Replace with your CA certificate file
+
+    //let ssl_connector = Arc::new(builder.build());
+
+    // Create a Reqwest HTTP client with the custom SSL connector
+    let client = Client::builder()
+        .use_native_tls()
+       // .ssl_connector(ssl_connector)
+        .build();
+
+    // Specify the URL you want to make a request to
+    let url = "https://127.0.0.1:8080/hello/world"; 
+
+    // Send an HTTPS GET request
+    let response = client.get(url).send()?;
+
+    // Check if the request was successful
+    if response.status().is_success() {
+        // If the status code is in the 2xx range, print the response body.
+        let body = response.text().await?;
+        println!("Response: {}", body);
+    } else {
+        println!("Request failed with status: {:?}", response.status());
+    }
+
+    Ok(())
+}
+ */

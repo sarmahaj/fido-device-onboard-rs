@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, str::FromStr};
+use std::{convert::TryFrom, str::FromStr, thread::Builder};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -150,10 +150,28 @@ pub struct ServiceClient {
 
 impl ServiceClient {
     pub fn new(protocol_version: ProtocolVersion, base_url: &str) -> Self {
+     
+        let resp = reqwest::Client::builder()
+        .tls_info(true)
+        .build()
+        .expect("client builder")
+        .get("https://google.com")
+        .send()
+        .await
+        .expect("response");
+    let tls_info = resp.extensions().get::<reqwest::tls::TlsInfo>();
+    assert!(tls_info.is_some());
+    let tls_info = tls_info.unwrap();
+    let peer_certificate = tls_info.peer_certificate();
+    assert!(peer_certificate.is_some());
+    let der = peer_certificate.unwrap();
+    assert_eq!(der[0], 0x30); // ASN.1 SEQUENCE
+    
         ServiceClient {
             protocol_version,
             base_url: base_url.trim_end_matches('/').to_string(),
-            client: reqwest::Client::new(),
+            //client: reqwest::Client::new(),
+            client: reqwest::Client::builder().tls_info(true),
             authorization_token: None,
             encryption_keys: EncryptionKeys::unencrypted(),
             last_message_type: None,
